@@ -10,7 +10,9 @@ echo "TIMIT directory: $TIMIT"
 DATA=data
 EXTRACTED_TIMIT=timit
 
-WAVDIR=wav
+WAV=".WAV"
+WAVDIR=tmp
+NEWWAVDIR=wav
 PHNDIR=phn
 CSVDIR=csv
 SMILECONF="$(dirname $(which SMILExtract))"
@@ -19,6 +21,8 @@ CONFIG=$SMILECONF/config/prosodyAcf.conf
 
 cd $DATA
 cd $EXTRACTED_TIMIT
+
+
 # Extracting audio files
 rm -rf $WAVDIR
 mkdir $WAVDIR
@@ -30,17 +34,22 @@ do
     cp "$NAME" "$WAVDIR/${NAME//\//_}";
 done
 echo "Extracted $(ls $WAVDIR -1 | wc -l) .WAVs."
-read -n1 -r -p "Press any key to continue and erase extra .WAF's header content..." key
-#rename WAV wav wav/*.WAV
+#read -n1 -r -p "Press any key to continue and erase extra .WAF's header content..." key
+# rename WAV wav wav/*.WAV
+
 
 # Erasing extra content from .wav header, so files can be processed by opensmile
+rm -rf $NEWWAVDIR
+mkdir $NEWWAVDIR
 for filename in $WAVDIR/*;
 do
-    ffmpeg -y -i $filename -map_metadata -1 -c:v copy -c:a copy $filename;
+    ffmpeg -y -i $filename -map_metadata -1 -c:v copy -c:a copy $NEWWAVDIR/${filename#$WAVDIR/};
 done
+rm -rf $WAVDIR
 echo "Extra information deleted from all .WAVs."
-read -n1 -r -p "Press any key to continue and extract corpus phones..." key
+#read -n1 -r -p "Press any key to continue and extract corpus phones..." key
 
+ 
 # Extracting phone segmentation
 rm -rf $PHNDIR
 mkdir $PHNDIR
@@ -51,15 +60,16 @@ do
     cp "$NAME" "$PHNDIR/${NAME//\//_}"; 
 done
 echo "Extracted $(ls $PHNDIR -1 | wc -l) .PHNs."
-read -n1 -r -p "Press any key to continue and extract needed .WAF's features..." key
+#read -n1 -r -p "Press any key to continue and extract needed .WAF's features..." key
+
 
 # Extracting features with SMILExtract, assuming it's added to PATH
 rm -rf $CSVDIR
 mkdir $CSVDIR
 echo "Extracting features into CSVs..."
-for filename in $WAVDIR/*;
+for filename in $NEWWAVDIR/*;
 do
-    SMILExtract -C $CONFIG -I $filename -O $CSVDIR/${filename#$WAVDIR}.csv;
+    f=${filename%$WAV}
+    SMILExtract -C $CONFIG -I $filename -O $CSVDIR/${f#$NEWWAVDIR}.csv;
 done
 echo "Created new $(ls $CSVDIR -1 | wc -l) .CSV feature files."
-
