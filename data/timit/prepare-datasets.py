@@ -81,7 +81,7 @@ if args.directory:
 
     # temporary code
     sets = []
-    if args.validationset
+    if args.validationset:
         trainFiles, valFiles, z1, z2 = train_test_split(featureFiles,
                                                 np.zeros(len(featureFiles)),
                                                 test_size = 0.2,
