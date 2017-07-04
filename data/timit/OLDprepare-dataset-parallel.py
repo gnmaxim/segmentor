@@ -49,7 +49,7 @@ OUTPUT = "../../models/"
 
 VOWEL = 1
 NONVOWEL = 0
-ADEGUACY = 0.75
+ADEGUACY = 1
 SAMPLE_FREQUENCY = 0.0000625 # 16kHz
 
 PHONE_LABELS = ["start", "end", "type"]
@@ -70,69 +70,69 @@ def perform_frame_labeling(utterance_filenames,
     labeled_utterances = []
 
     for feature_file, i in zip(utterance_filenames, np.arange(len(utterance_filenames))):
-        # if feature_file.endswith("30.csv"):
-        # Load utterance frames with features
-        expr_features = pd.read_csv(input_dir + CSV_PATH + feature_file,
-                                    delimiter = ";")
-        print (feature_file,
-                "\tgetting labeled by pid:", os.getpid(),
-                "\t", i, "th utterance")
+        if feature_file.endswith("30.csv"):
+            # Load utterance frames with features
+            expr_features = pd.read_csv(input_dir + CSV_PATH + feature_file,
+                                        delimiter = ";")
+            print (feature_file,
+                    "\tgetting labeled by pid:", os.getpid(),
+                    "\t", i, "th utterance")
 
-        # Load phones of the same utterance
-        phone_file = feature_file[: -len(CSV_EXT)] + PHN_EXT
-        expr_phones = pd.read_csv(input_dir + PHN_PATH + phone_file,
-                                        delim_whitespace = True,
-                                        header = None,
-                                        names = PHONE_LABELS)
+            # Load phones of the same utterance
+            phone_file = feature_file[: -len(CSV_EXT)] + PHN_EXT
+            expr_phones = pd.read_csv(input_dir + PHN_PATH + phone_file,
+                                            delim_whitespace = True,
+                                            header = None,
+                                            names = PHONE_LABELS)
 
-        tot_frames = expr_features.shape[0]
-        tot_phones = expr_phones.shape[0]
+            tot_frames = expr_features.shape[0]
+            tot_phones = expr_phones.shape[0]
 
-        # Convert sample number to time (seconds)
-        expr_phones.loc[:, "start":"end"] *= SAMPLE_FREQUENCY
+            # Convert sample number to time (seconds)
+            expr_phones.loc[:, "start":"end"] *= SAMPLE_FREQUENCY
 
-        # Extract start points of each frame
-        frame_start_points = np.asarray(expr_features.loc[:, FRAME_TIME])
+            # Extract start points of each frame
+            frame_start_points = np.asarray(expr_features.loc[:, FRAME_TIME])
 
-        labels = []
-        for phone in range(tot_phones):
-            for frame in (k for k in range(tot_frames) if
-                (frame_start_points[k] >= expr_phones.loc[phone, "start"]) and
-                (frame_start_points[k] < expr_phones.loc[phone, "end"])):
+            labels = []
+            for phone in range(tot_phones):
+                for frame in (k for k in range(tot_frames) if
+                    (frame_start_points[k] >= expr_phones.loc[phone, "start"]) and
+                    (frame_start_points[k] < expr_phones.loc[phone, "end"])):
 
-                frame_ending = frame_start_points[frame] + frame_size
+                    frame_ending = frame_start_points[frame] + frame_size
 
-                if (frame_ending <= expr_phones.loc[phone, "end"]):
-                    # if current frame is totally a part of one single phone
-                    # ending boundary INCLUDED, then label the frame with phone type
-                    labels.append(int(expr_phones.loc[phone, "type"] in vowels))
-                else:
-                    # time interval of current frame over next phone
-                    nextPhonePart = (frame_ending -
-                                        expr_phones.loc[phone, "end"]) / frame_size
-
-                    if phone + 1 < tot_phones and nextPhonePart >= ADEGUACY:
-                        # more than ADEGUACY*100% of this frame covers the next phone
-                        labels.append(int(expr_phones.loc[phone + 1, "type"] in vowels))
-                    else:
-                        # less than ADEGUACY*100% of this frame covers the next phone
+                    if (frame_ending <= expr_phones.loc[phone, "end"]):
+                        # if current frame is totally a part of one single phone
+                        # ending boundary INCLUDED, then label the frame with phone type
                         labels.append(int(expr_phones.loc[phone, "type"] in vowels))
+                    else:
+                        # time interval of current frame over next phone
+                        nextPhonePart = (frame_ending -
+                                            expr_phones.loc[phone, "end"]) / frame_size
+
+                        if phone + 1 < tot_phones and nextPhonePart >= ADEGUACY:
+                            # more than ADEGUACY*100% of this frame covers the next phone
+                            labels.append(int(expr_phones.loc[phone + 1, "type"] in vowels))
+                        else:
+                            # less than ADEGUACY*100% of this frame covers the next phone
+                            labels.append(int(expr_phones.loc[phone, "type"] in vowels))
 
 
-        expr_label_data = pd.DataFrame(labels, index = None, columns = ["vowel"])
-        labeled_utterance = pd.concat([expr_features, expr_label_data], axis = 1)
+            expr_label_data = pd.DataFrame(labels, index = None, columns = ["vowel"])
+            labeled_utterance = pd.concat([expr_features, expr_label_data], axis = 1)
 
-        # Throwing away frame start info which is no more relevant
-        labeled_utterance.drop(labeled_utterance.columns[0], axis = 1, inplace = True)
+            # Throwing away frame start info which is no more relevant
+            labeled_utterance.drop(labeled_utterance.columns[0], axis = 1, inplace = True)
 
-        # In the final .csv utterances will be separated by a blank line,
-        # so at the end of utterance's DataFrame a vector of NaNs must be inserted
-        final_features = list(labeled_utterance.columns.values)
-        nans = np.full([len(final_features)], np.nan)
-        s = pd.Series(nans, index = final_features)
-        labeled_utterance = labeled_utterance.append(s, ignore_index = True)
+            # In the final .csv utterances will be separated by a blank line,
+            # so at the end of utterance's DataFrame a vector of NaNs must be inserted
+            final_features = list(labeled_utterance.columns.values)
+            nans = np.full([len(final_features)], np.nan)
+            s = pd.Series(nans, index = final_features)
+            labeled_utterance = labeled_utterance.append(s, ignore_index = True)
 
-        labeled_utterances.append(labeled_utterance)
+            labeled_utterances.append(labeled_utterance)
 
     return labeled_utterances
 

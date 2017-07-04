@@ -106,7 +106,7 @@ y_dataset = sequence.pad_sequences(y_dataset,
                                 dtype = 'float',
                                 padding = 'post',
                                 truncating = 'post',
-                                value = prominent_syllable)
+                                value = prominent_syllable) # ????????????????
 
 x_dataset = numpy.asarray(x_dataset)
 y_dataset = numpy.asarray(y_dataset)

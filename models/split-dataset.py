@@ -72,7 +72,7 @@ if __name__=="__main__":
         data = np.asmatrix(data)
         max_utterance_length = int(max(data[:, 2]))
         print ("Longest utterance has\t\t", max_utterance_length, "frames")
-        
+
         # Must parallelize data padding
     else:
         parser.print_help()
@@ -80,4 +80,12 @@ if __name__=="__main__":
 
 """
     https://github.com/fchollet/keras/issues/1711
+
+    execute-timit.sh
+        extract-corpus.sh
+        prepare-dataset-parallel.py
+        train-model.py
+            blstm.py
+            convolutiona.py
+
 """
