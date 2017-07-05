@@ -6,11 +6,14 @@ import argparse
 import timeit
 import sys
 import os
+
 from multiprocessing import Pool
 from functools import partial
 
+from sklearn.model_selection import train_test_split
 from keras.preprocessing import sequence
 
+from blstm import blstm
 
 
 PROC = 6
@@ -40,39 +43,13 @@ def unpack_dataset(dataset):
     groups = [grouped_by_utterance.get_group(key) for key in keys]
 
     X = [group[features[0: -1]] for group in groups]
-    Y = [group[features[-1]] for group in groups]
+    Y = [group[features[-1]].to_frame() for group in groups]
 
     return [X, Y, max_utterance_length]
 
 
-def fill_with_zeros(X, Y, max_utterance_length):
-    filled_X = []
-    filled_Y = []
 
-    # X is still a list of dataframes
-    [filled_X.append(np.asarray(x)) for x in X]
-    [filled_Y.append(np.asarray(y)) for y in Y]
-
-    missing_features = np.zeros(len(X[0].columns.values))
-
-    filled_X = sequence.pad_sequences(filled_X,
-                            maxlen = max_utterance_length,
-                            dtype = 'float',
-                            padding = 'post',
-                            truncating = 'post',
-                            value = missing_features)
-    filled_Y = sequence.pad_sequences(filled_Y,
-                            maxlen = max_utterance_length,
-                            dtype = 'float',
-                            padding = 'post',
-                            truncating = 'post',
-                            value = 0.0)
-
-    return [filled_X, filled_Y]
-
-
-
-if __name__=="__main__":
+if __name__ == "__main__":
     """
         The main purpose of this parallel labeling is to optimize time, so we don't
         care about memory usage here.
@@ -102,9 +79,9 @@ if __name__=="__main__":
         if args.cores:
             phys_cores = args.cores
 
-        static_validation = VAL_PROP
+        validation_split = VAL_PROP
         if args.static_validation:
-            static_validation = args.static_validation
+            validation_split = args.static_validation
 
 
         pool = Pool(processes = phys_cores)
@@ -117,24 +94,34 @@ if __name__=="__main__":
         max_utterance_length = max([length[2] for length in data])
         print ("Longest utterance has\t\t", max_utterance_length, "frames")
 
-        train_X = []
-        train_Y = []
+        train_X = data[0][0]
+        train_Y = data[0][1]
+        model = blstm.train(train_X, train_Y, validation_split)
 
-        test_X = []
-        test_Y = []
+        # train_Y = []
+        #
+        # test_X = []
+        # test_Y = []
 
-        start_time = timeit.default_timer()
-        [[train_X, train_Y],
-         [test_X, test_Y]] = pool.starmap(fill_with_zeros,
-                                            zip([X[0] for X in data],
-                                                [Y[1] for Y in data],
-                                                it.repeat(max_utterance_length)))
-        elapsed_time = timeit.default_timer() - start_time
-        print ("Filled missing values in\t", elapsed_time, "seconds")
+        # start_time = timeit.default_timer()
+        # [[train_X, train_Y],
+        #  [test_X, test_Y]] = pool.starmap(fill_with_zeros,
+        #                                     zip([X[0] for X in data],
+        #                                         [Y[1] for Y in data],
+        #                                         it.repeat(max_utterance_length)))
+        # elapsed_time = timeit.default_timer() - start_time
+        # print ("Filled missing values in\t", elapsed_time, "seconds")
 
-        print (train_X, np.shape(train_X))
-        print (train_Y, np.shape(train_Y))
-        # print (np.shape(filled_Y))
+        # valset_length = int(len(train_X) * static_validation)
+
+        # validation_X = train_X[len(train_X) - valset_length:]
+        # validation_Y = train_Y[len(train_Y) - valset_length:]
+        #
+        # train_X = train_X[:-valset_length]
+
+        # model Building
+
+        # evaluation metrics implementation
 
     else:
         parser.print_help()
