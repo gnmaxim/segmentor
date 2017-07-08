@@ -7,6 +7,19 @@ from keras.preprocessing import sequence
 from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.layers.recurrent import LSTM
 
+import tensorflow as tf
+
+
+BATCH_SIZE = 5
+
+def data_frames_to_arrays(list_of_dfs):
+    """
+        Convert list of dataframes to list of numpy arrays
+    """
+    list_of_arrays = []
+    [list_of_arrays.append(np.asarray(df)) for df in list_of_dfs]
+
+    return list_of_arrays
 
 
 def fill_with_zeros(X, Y):
@@ -19,31 +32,38 @@ def fill_with_zeros(X, Y):
         returns a filled X, Y as numpy arrays and the max utterance size
     """
 
-    filled_X = []
-    filled_Y = []
-
     max_size = max([dataframe.shape[0] for dataframe in Y])
-
-    [filled_X.append(np.asarray(x)) for x in X]
-    [filled_Y.append(np.asarray(y)) for y in Y]
 
     missing_features = np.zeros(X[0].shape[1])
     missing_labels = np.zeros(Y[0].shape[1])
 
-    filled_X = sequence.pad_sequences(filled_X,
-                            maxlen = max_size,
-                            dtype = 'float',
-                            padding = 'post',
-                            truncating = 'post',
-                            value = missing_features)
-    filled_Y = sequence.pad_sequences(filled_Y,
-                            maxlen = max_size,
-                            dtype = 'float',
-                            padding = 'post',
-                            truncating = 'post',
-                            value = missing_labels)
+    X = sequence.pad_sequences(X, maxlen = max_size,
+                                dtype = 'float',
+                                padding = 'post',
+                                truncating = 'post',
+                                value = missing_features)
+    Y = sequence.pad_sequences(Y, maxlen = max_size,
+                                dtype = 'float',
+                                padding = 'post',
+                                truncating = 'post',
+                                value = missing_labels)
 
-    return [filled_X, filled_Y]
+    return [X, Y]
+
+
+def get_time_distributed_labels(Y):
+    """
+        Y should be a pandas DataFrame
+
+        Adds columns to labels, this neural network model will require that:
+        1. a vowel will be represented by triple <1 0 0>
+        2. a non vowel will be represented by triple <0 1 0>
+        3. a missing value will be represented by triple <0 0 1>
+    """
+    Y = [y.assign(not_vowel = lambda x: np.logical_not(x.vowel).astype(float)) for y in Y]
+    Y = [y.assign(missing = lambda x: 0.0) for y in Y]
+
+    return Y
 
 
 def build_model(in_shape, out_len):
@@ -55,7 +75,7 @@ def build_model(in_shape, out_len):
 
     model = Sequential()
 
-    model.add(Bidirectional(LSTM(in_shape[0],
+    model.add(Bidirectional(LSTM(int(in_shape[0] / 2),
                                     return_sequences = True),
                                     input_shape = in_shape))
     model.add(Dropout(0.5))
@@ -69,7 +89,6 @@ def build_model(in_shape, out_len):
     return model
 
 
-
 def train(X, Y, validation_split):
     """
         Perform training on BLSTM based network model
@@ -79,28 +98,48 @@ def train(X, Y, validation_split):
     lengths = [dataframe.shape[0] for dataframe in Y]
     max_length = max(lengths)
 
-    """
-        Adding columns to Y label, this neural network model will require that:
-        1. a vowel will be represented by triple <1 0 0>
-        2. a non vowel will be represented by triple <0 1 0>
-        3. a missing value will be represented by triple <0 0 1>
-    """
-    Y = [y.assign(not_vowel = lambda x: np.logical_not(x.vowel).astype(float)) for y in Y]
-    Y = [y.assign(missing = lambda x: 0.0) for y in Y]
+    print ("1.", type(X), type(X[0]))
+
+    # Adapt labels to TimeDistributed wrapper
+    Y = get_time_distributed_labels(Y)
+
+    X_a = data_frames_to_arrays(X)
+    Y_a = data_frames_to_arrays(Y)
+
+    print ("2.", type(X_a), type(X_a[0]), np.shape(X_a), np.shape(X_a[0]))
 
     # Fill with missing values
-    [X, Y] = fill_with_zeros(X, Y)
+    [X_a, Y_a] = fill_with_zeros(X_a, Y_a)
+    print ("3.", type(X_a), type(X_a[0]), np.shape(X_a), np.shape(X_a[0]))
 
-    model = build_model(np.shape(X[0]), len(Y[0][0]))
+    model = build_model(np.shape(X_a[0]), len(Y_a[0][0]))
+    # model.fit(X_a, Y_a,
+    #             validation_split = validation_split,
+    #             epochs = 10,
+    #             batch_size = BATCH_SIZE)
 
-    model.fit(X, Y, validation_split = validation_split, epochs = 50, batch_size = 5)
+    return model
 
 
+def predict(model, X, Y):
+    """
+        Predict outputs with model and get some metrics:
+        accuracy, precision, recall and fmeasure which combines precision
+        and recall equally
+    """
+    print ("1.", type(X), type(X[0]))
+    X_a = data_frames_to_arrays(X)
+    Y_a = data_frames_to_arrays(Y)
+    print ("2.", type(X_a), type(X_a[0]), np.shape(X_a), np.shape(X_a[0]))
+    # Fill with missing values
+    [X_a, Y_a] = fill_with_zeros(X_a, Y_a)
+    print ("3.", type(X_a), type(X_a[0]), np.shape(X_a), np.shape(X_a[0]))
+    predictions = model.predict(X_a, batch_size = BATCH_SIZE)
 
-    return "wtf"
+    a = accuracy(Y, predictions)
+    p = precision(Y, predictions)
+    r = recall(Y, predictions)
+    f = fmeasure(Y, predictions)
 
 
-
-def test(test_X, test_Y):
-
-    return "wtf"
+    return a, p, r, f

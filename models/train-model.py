@@ -13,7 +13,7 @@ from functools import partial
 from sklearn.model_selection import train_test_split
 from keras.preprocessing import sequence
 
-from blstm import blstm
+from blstm import tdblstm
 
 
 PROC = 6
@@ -46,7 +46,6 @@ def unpack_dataset(dataset):
     Y = [group[features[-1]].to_frame() for group in groups]
 
     return [X, Y, max_utterance_length]
-
 
 
 if __name__ == "__main__":
@@ -85,43 +84,28 @@ if __name__ == "__main__":
 
 
         pool = Pool(processes = phys_cores)
+
         start_time = timeit.default_timer()
+
         data = pool.map(unpack_dataset, [args.trainset, args.testset])
+
         elapsed_time = timeit.default_timer() - start_time
         print ("\nData unpacking performed in\t", elapsed_time, "seconds")
-
 
         max_utterance_length = max([length[2] for length in data])
         print ("Longest utterance has\t\t", max_utterance_length, "frames")
 
         train_X = data[0][0]
         train_Y = data[0][1]
-        model = blstm.train(train_X, train_Y, validation_split)
+        test_X = data[1][0]
+        test_Y = data[1][1]
 
-        # train_Y = []
-        #
-        # test_X = []
-        # test_Y = []
+        blstm = tdblstm.Blstm(train_X, train_Y, test_X, test_Y)
+        blstm.build()
+        print (blstm.get_model_summary())
+        blstm.train(validation_split)
 
-        # start_time = timeit.default_timer()
-        # [[train_X, train_Y],
-        #  [test_X, test_Y]] = pool.starmap(fill_with_zeros,
-        #                                     zip([X[0] for X in data],
-        #                                         [Y[1] for Y in data],
-        #                                         it.repeat(max_utterance_length)))
-        # elapsed_time = timeit.default_timer() - start_time
-        # print ("Filled missing values in\t", elapsed_time, "seconds")
 
-        # valset_length = int(len(train_X) * static_validation)
-
-        # validation_X = train_X[len(train_X) - valset_length:]
-        # validation_Y = train_Y[len(train_Y) - valset_length:]
-        #
-        # train_X = train_X[:-valset_length]
-
-        # model Building
-
-        # evaluation metrics implementation
 
     else:
         parser.print_help()
@@ -137,4 +121,8 @@ if __name__ == "__main__":
             blstm.py
             convolution.py
 
+    # valset_length = int(len(train_X) * static_validation)
+    # validation_X = train_X[len(train_X) - valset_length:]
+    # validation_Y = train_Y[len(train_Y) - valset_length:]
+    # train_X = train_X[:-valset_length]
 """
