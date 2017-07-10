@@ -13,11 +13,10 @@ from functools import partial
 from sklearn.model_selection import train_test_split
 from keras.preprocessing import sequence
 
-from blstm import tdblstm
+from models import blstm
 
 
 PROC = 6
-
 VAL_PROP = 0.2
 
 def unpack_dataset(dataset):
@@ -100,29 +99,11 @@ if __name__ == "__main__":
         test_X = data[1][0]
         test_Y = data[1][1]
 
-        blstm = tdblstm.Blstm(train_X, train_Y, test_X, test_Y)
-        blstm.build()
-        print (blstm.get_model_summary())
-        blstm.train(validation_split)
-
-
+        td_blstm = blstm.TimeDistributedBlstm(train_X, train_Y, test_X, test_Y)
+        td_blstm.build()
+        print (td_blstm.get_model_summary())
+        #td_blstm.train(validation_split)
+        td_blstm.predict()
 
     else:
         parser.print_help()
-
-
-"""
-    https://github.com/fchollet/keras/issues/1711
-
-    execute-timit.sh
-        extract-corpus.sh
-        prepare-dataset-parallel.py
-        train-model.py
-            blstm.py
-            convolution.py
-
-    # valset_length = int(len(train_X) * static_validation)
-    # validation_X = train_X[len(train_X) - valset_length:]
-    # validation_Y = train_Y[len(train_Y) - valset_length:]
-    # train_X = train_X[:-valset_length]
-"""

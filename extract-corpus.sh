@@ -5,7 +5,7 @@ FOLDER=0
 CONFIG=0
 # REMOVE=0
 
-DATA=data
+DATA=rawdata
 EXTRACTED_FOLDER=timit
 
 WAV=".WAV"

@@ -7,18 +7,21 @@ from keras.preprocessing import sequence
 from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.layers.recurrent import LSTM
 
+from models import evaluator
 
-class Blstm:
-    def __init__(self, x, y, t_x, t_y):
-        y    = self.__get_time_distributed_labels(y)
-        t_y  = self.__get_time_distributed_labels(t_y)
 
-        self.__train_X = self.__to_arrays(x)
-        self.__train_Y = self.__to_arrays(y)
-        self.__test_X  = self.__to_arrays(t_x)
-        self.__test_Y  = self.__to_arrays(t_y)
+class TimeDistributedBlstm:
+    def __init__(self, train_x, train_y, test_x, test_y):
+        train_y = self.__to_time_distributed_labels(train_y)
+        test_y  = self.__to_time_distributed_labels(test_y)
 
-        self.__get_max_sample_size()
+        self.__train_X = self.__to_arrays(train_x)
+        self.__train_Y = self.__to_arrays(train_y)
+        self.__test_X  = self.__to_arrays(test_x)
+        self.__test_Y  = self.__to_arrays(test_y)
+
+        self.__store_test_sample_sizes()
+        self.__store_max_sample_size()
 
         self.__train_X = self.__fill_with_null_vectors(self.__train_X)
         self.__train_Y = self.__fill_with_null_vectors(self.__train_Y)
@@ -31,12 +34,11 @@ class Blstm:
         return None
 
 
-    def __get_time_distributed_labels(self, labels):
+    def __to_time_distributed_labels(self, labels):
         labels = [l.assign(logic_not = lambda x: \
                 np.logical_not(x[x.columns[0]]).astype(float)) \
                     for l in labels]
         labels = [l.assign(missing = lambda x: .0) for l in labels]
-
 
         return labels
 
@@ -48,7 +50,13 @@ class Blstm:
         return array_list
 
 
-    def __get_max_sample_size(self):
+    def __store_test_sample_sizes(self):
+        self.__test_sample_sizes = [y.shape[0] for y in self.__test_Y]
+
+        return None
+
+
+    def __store_max_sample_size(self):
         sizes = [y.shape[0] for y in self.__train_Y]
         t_sizes = [y.shape[0] for y in self.__test_Y]
 
@@ -74,15 +82,11 @@ class Blstm:
     def __get_input_shape(self, x):
         input_shape = self.__train_X[0].shape
 
-        print (input_shape)
-
         return input_shape
 
 
     def __get_output_shape(self, x):
         output_shape = self.__train_Y[0].shape
-
-        print (output_shape)
 
         return output_shape
 
@@ -122,10 +126,29 @@ class Blstm:
 
 
     def predict(self):
+        test_set_size = np.shape(self.__test_Y)[0]
+
         self.__predicted_Y = self.__model.predict(self.__test_X,
                                             batch_size = self.__BATCH_SIZE)
 
-        return None
+        # Take predicted time distributed labels as float arrays,
+        # transform into 1D dichotomized sequences of integer labeles
+        one_dim_predicted_Y = [np.argmax( \
+                                self.__predicted_Y[i, :self.__test_sample_sizes[i], :-1],
+                                axis = 1) \
+                                    for i in range(test_set_size)]
+
+        # Select original 1D test labels
+        one_dim_Y = [self.__test_Y[i, :self.__test_sample_sizes[i], 0] \
+                                    for i in range(test_set_size)]
+
+        binary_evaluator = evaluator.BinaryEvaluator(one_dim_predicted_Y, one_dim_Y)
+        accuracy = binary_evaluator.accuracy()
+        precision = binary_evaluator.precision()
+        recall = binary_evaluator.recall()
+        fscore = binary_evaluator.f_score()
+
+        return accuracy, precision, recall, fscore
 
 
     __EPOCHS = 10
@@ -143,3 +166,4 @@ class Blstm:
     __max_sample_size = None
 
     __predicted_Y = None
+    __test_sample_sizes = None
