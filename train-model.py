@@ -13,11 +13,14 @@ from functools import partial
 from sklearn.model_selection import train_test_split
 from keras.preprocessing import sequence
 
-from models import blstm
+from models import blstm_v1
+import matplotlib.pyplot as plt
 
 
 PROC = 6
 VAL_PROP = 0.2
+SESSIONS_PATH = "sessions/"
+
 
 def unpack_dataset(dataset):
     raw_dataset = pd.read_csv(dataset, delimiter = ";",
@@ -54,6 +57,15 @@ if __name__ == "__main__":
     """
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--session_name",
+                        required = True,
+                        help = "Name of folder where models will be saved")
+    parser.add_argument("-m", "--model_type",
+                        required = True,
+                        choices = ["td-blstm"],
+                        help = "Specify model type, \'td-blstm\' for time \
+                                distributed blstm, \'mtd-blstm\' for \
+                                time distributed blstm with masked input")
     parser.add_argument("-t", "--trainset",
                         required = True,
                         help = "path to trainset .csv file")
@@ -72,7 +84,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    if args.trainset and args.testset:
+    learning_session = SESSIONS_PATH \
+                        + args.model_type + "/" \
+                        + args.session_name + "/"
+
+    if os.path.exists(learning_session):
+        raise ValueError("Session with name", learning_session, "already exists")
+    else:
+        os.makedirs(learning_session)
+
         phys_cores = PROC
         if args.cores:
             phys_cores = args.cores
@@ -85,9 +105,7 @@ if __name__ == "__main__":
         pool = Pool(processes = phys_cores)
 
         start_time = timeit.default_timer()
-
         data = pool.map(unpack_dataset, [args.trainset, args.testset])
-
         elapsed_time = timeit.default_timer() - start_time
         print ("\nData unpacking performed in\t", elapsed_time, "seconds")
 
@@ -99,11 +117,12 @@ if __name__ == "__main__":
         test_X = data[1][0]
         test_Y = data[1][1]
 
-        td_blstm = blstm.TimeDistributedBlstm(train_X, train_Y, test_X, test_Y)
-        td_blstm.build()
+        td_blstm = blstm_v1.TimeDistributedBlstm(train_X, train_Y,
+                                                    test_X, test_Y,
+                                                    info = True)
         print (td_blstm.get_model_summary())
-        #td_blstm.train(validation_split)
-        td_blstm.predict()
+        history = td_blstm.train(validation_split,
+                                    session_path = learning_session)
 
-    else:
-        parser.print_help()
+        scores = td_blstm.predict()
+        print (scores)

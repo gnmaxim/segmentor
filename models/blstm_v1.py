@@ -1,18 +1,22 @@
+import os
+import h5py
 import numpy as np
 import pandas as pd
 
-from keras.models import Sequential
-from keras.layers.core import Dense, Activation, Dropout, Masking
+from keras.models import Sequential, load_model
+from keras.callbacks import ModelCheckpoint, TensorBoard, CSVLogger
+from keras.layers.core import Dense, Activation, Dropout
 from keras.preprocessing import sequence
 from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.layers.recurrent import LSTM
 
-from models import evaluator
+from models import evaluator, callback_evaluator
 
 
 class TimeDistributedBlstm:
     def __init__(self, train_x, train_y,
-                        test_x, test_y):
+                        test_x, test_y,
+                        info = False,):
         # Convert labels to time distributed format
         train_y = self.__to_time_distributed_labels(train_y)
         test_y  = self.__to_time_distributed_labels(test_y)
@@ -26,13 +30,20 @@ class TimeDistributedBlstm:
         self.__store_max_sample_size()
 
         # All sequences must have the same length
-        self.__train_X = self.__fill_with_null_vectors(self.__train_X)
-        self.__train_Y = self.__fill_with_null_vectors(self.__train_Y)
-        self.__test_X  = self.__fill_with_null_vectors(self.__test_X)
-        self.__test_Y  = self.__fill_with_null_vectors(self.__test_Y)
+        self.__train_X = self.__input_null_vectors(self.__train_X)
+        self.__train_Y = self.__output_null_vectors(self.__train_Y)
+        self.__test_X  = self.__input_null_vectors(self.__test_X)
+        self.__test_Y  = self.__output_null_vectors(self.__test_Y)
 
         self.__input_shape = self.__get_input_shape(self.__train_X)
         self.__output_shape = self.__get_output_shape(self.__train_Y)
+
+        self.__build()
+
+        self.__info = info
+
+        if self.__info:
+            self.__print_all_info()
 
         return None
 
@@ -69,18 +80,31 @@ class TimeDistributedBlstm:
         return None
 
 
-    def __fill_with_null_vectors(self, seq):
-        missing_vector_dim = np.zeros(seq[0].shape[1])
+    def __input_null_vectors(self, sequences):
+        missing_vector_dim = np.zeros(sequences[0].shape[1])
+
+        sequences = sequence.pad_sequences(sequences,
+                                        dtype = 'float',
+                                        padding = 'post',
+                                        truncating = 'post',
+                                        value = missing_vector_dim,
+                                        maxlen = self.__max_sample_size)
+
+        return sequences
 
 
-        seq = sequence.pad_sequences(seq,
-                            dtype = 'float',
-                            padding = 'post',
-                            truncating = 'post',
-                            value = missing_vector_dim,
-                            maxlen = self.__max_sample_size)
+    def __output_null_vectors(self, sequences):
+        missing_vector_dim = np.zeros(sequences[0].shape[1])
+        missing_vector_dim[-1] = 1
 
-        return seq
+        sequences = sequence.pad_sequences(sequences,
+                                        dtype = 'float',
+                                        padding = 'post',
+                                        truncating = 'post',
+                                        value = missing_vector_dim,
+                                        maxlen = self.__max_sample_size)
+
+        return sequences
 
 
     def __get_input_shape(self, x):
@@ -95,13 +119,12 @@ class TimeDistributedBlstm:
         return output_shape
 
 
-    def build(self):
+    def __build(self):
         self.__model = Sequential()
-        self.__model.add(Masking(input_shape = self.__input_shape,
-                                    mask_value = []))
         self.__model.add(Bidirectional \
                             (LSTM(int(self.__max_sample_size / 2),
-                                    return_sequences = True)))
+                                    return_sequences = True),
+                                    input_shape = self.__input_shape))
         self.__model.add(Dropout(0.5))
         self.__model.add(TimeDistributed \
                             (Dense(self.__output_shape[1],
@@ -112,12 +135,46 @@ class TimeDistributedBlstm:
 
         return None
 
+# LearningRateScheduler
+# ReduceLROnPlateau
+# CSVLogger
+# LambdaCallback
 
-    def train(self, val_static_split):
+    def train(self, val_static_split, session_path):
+        savename = "{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}"
+        bests_savename = "BEST-" + savename
+
+        # Creating callbacks relatively to saving models
+        savior = ModelCheckpoint(session_path + savename,
+                                    period = 1)
+        best_savior = ModelCheckpoint(session_path + bests_savename,
+                                    monitor = "val_loss",
+                                    save_best_only = True)
+
+        # Callback for visualizing some graphs
+        visual = TensorBoard(log_dir = session_path + "visual",
+                            histogram_freq = 1,
+                            write_graph = True,
+                            write_grads = True,
+                            write_images = True)
+
+        # Callback for some .csv output
+        to_csv = CSVLogger(filename = session_path + "out.csv",
+                            separator = ",",
+                            append = False)
+
+        ce = callback_evaluator.ValidationMetrics()
+
         history = self.__model.fit(self.__train_X, self.__train_Y,
                                     validation_split = val_static_split,
+                                    shuffle = False,
                                     batch_size = self.__BATCH_SIZE,
-                                    epochs = self.__EPOCHS)
+                                    epochs = self.__EPOCHS,
+                                    callbacks = [savior,
+                                                best_savior,
+                                                visual,
+                                                to_csv,
+                                                ce])
 
         return history
 
@@ -158,8 +215,23 @@ class TimeDistributedBlstm:
         return accuracy, precision, recall, fscore
 
 
-    __EPOCHS = 2
-    __BATCH_SIZE = 10
+    def __print_all_info(self):
+        print ("Model type: Time Distributed BLSTM with static input dimension")
+
+        print ("Input shape:\t\t", self.__input_shape)
+        print ("Output shape:\t\t", self.__output_shape)
+        print ("Maximum Sample size:\t", self.__max_sample_size)
+
+        print ("Missing input vector:\t", self.__train_X[0][-1])
+        print ("Missing output vector:\t", self.__train_Y[0][-1])
+
+        print ("\t", self.__EPOCHS, "epochs with batch size",self.__BATCH_SIZE)
+
+        return None
+
+
+    __EPOCHS = 70
+    __BATCH_SIZE = 2
 
     __model = None
 
@@ -174,3 +246,6 @@ class TimeDistributedBlstm:
 
     __predicted_Y = None
     __test_sample_sizes = None
+
+    __info = None
+    __SAVE_DIR = None

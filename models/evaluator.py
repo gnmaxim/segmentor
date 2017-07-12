@@ -26,15 +26,19 @@ class BinaryEvaluator:
                 (0, 1)    denote false negative predictions
                 (1, 1)    denote positive predictions
 
-            But the tuples above, if converted to decimal are an int from 0 to 3,
+            But the above tuples if converted to decimal are integers from 0 to 3,
             which can be the index of an iterable. This property is used below.
         """
         results = [0, 0, 0, 0]
 
         predicted_labels = np.concatenate(self.__p_Y)
         labels = np.concatenate(self.__Y)
+
+        # The i-th predicted label and non are merged into a tuple
+        # of form < predicted_label, label >
         comparisons = np.dstack((predicted_labels, labels))[0]
 
+        # It's time to count result types as described in the top comment
         for k in range(len(comparisons)):
             results[int(comparisons[k].dot(1 << np.arange(comparisons[k].size)[:]))] += 1
 

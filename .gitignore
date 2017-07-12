@@ -4,5 +4,6 @@
 *.PHN
 *.csv
 *.log
+sessions/*
 .directory
 __pycache__
