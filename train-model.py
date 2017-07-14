@@ -13,8 +13,7 @@ from functools import partial
 from sklearn.model_selection import train_test_split
 from keras.preprocessing import sequence
 
-from models import blstm_v1
-import matplotlib.pyplot as plt
+from models import td_blstm
 
 
 PROC = 6
@@ -112,12 +111,12 @@ if __name__ == "__main__":
         max_utterance_length = max([length[2] for length in data])
         print ("Longest utterance has\t\t", max_utterance_length, "frames")
 
-        train_X = data[0][0]
-        train_Y = data[0][1]
-        test_X = data[1][0]
-        test_Y = data[1][1]
+        train_X = data[0][0][:-1]
+        train_Y = data[0][1][:-1]
+        test_X = data[1][0][:-1]
+        test_Y = data[1][1][:-1]
 
-        td_blstm = blstm_v1.TimeDistributedBlstm(train_X, train_Y,
+        td_blstm = td_blstm.TimeDistributedBlstm(train_X, train_Y,
                                                     test_X, test_Y,
                                                     info = True)
         print (td_blstm.get_model_summary())

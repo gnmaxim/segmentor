@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class BinaryEvaluator:
+class BinarySequenceEvaluator:
     """
         Given a 1D sequence of predicted and original labels in {0, 1},
         BinaryEvaluator can be used to compute Accuracy, Precision, Recall and
@@ -49,29 +49,44 @@ class BinaryEvaluator:
 
 
     def accuracy(self):
-        accuracy = (self.__true_neg + self.__true_pos) \
-                    / (self.__true_neg + self.__false_pos \
-                        + self.__false_neg + self.__true_pos)
+        accuracy = 0
+
+        if self.__true_neg + self.__false_pos +  \
+                             self.__false_neg + self.__true_pos != 0:
+            accuracy = (self.__true_neg + self.__true_pos) \
+                        / (self.__true_neg + self.__false_pos \
+                            + self.__false_neg + self.__true_pos)
 
         return accuracy
 
 
     def precision(self):
-        precision = self.__true_pos / (self.__false_pos + self.__true_pos)
+        precision = 0
+
+        if self.__false_pos + self.__true_pos != 0:
+            precision = self.__true_pos / (self.__false_pos + self.__true_pos)
 
         return precision
 
 
     def recall(self):
-        recall = self.__true_pos / (self.__false_neg + self.__true_pos)
+        recall = 0
+
+        if self.__false_neg + self.__true_pos != 0:
+            recall = self.__true_pos / (self.__false_neg + self.__true_pos)
 
         return recall
 
 
     def f_score(self, beta = 1):
-        f_score = (1 + pow(beta, 2)) \
-                    * (self.precision() * self.recall()) \
-                    / ((pow(beta, 2) * self.precision()) + self.recall())
+        precision = self.precision()
+        recall = self.recall()
+        fscore = 0
+
+        if (precision != 0 and beta != 0) or recall != 0:
+            f_score = (1 + pow(beta, 2)) \
+                        * (self.precision() * self.recall()) \
+                        / ((pow(beta, 2) * self.precision()) + self.recall())
 
         return f_score
 
