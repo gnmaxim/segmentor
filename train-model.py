@@ -111,10 +111,10 @@ if __name__ == "__main__":
         max_utterance_length = max([length[2] for length in data])
         print ("Longest utterance has\t\t", max_utterance_length, "frames")
 
-        train_X = data[0][0][:-1]
-        train_Y = data[0][1][:-1]
-        test_X = data[1][0][:-1]
-        test_Y = data[1][1][:-1]
+        train_X = data[0][0][:-1] # [:-1 ONLY IF IS SMALL TESTSET AND BLSTM IS STATEFUL]
+        train_Y = data[0][1][:-1] # [:-1 ONLY IF IS SMALL TESTSET AND BLSTM IS STATEFUL]
+        test_X = data[1][0][:-1] # [:-1 ONLY IF IS SMALL TESTSET AND BLSTM IS STATEFUL]
+        test_Y = data[1][1][:-1] # [:-1 ONLY IF IS SMALL TESTSET AND BLSTM IS STATEFUL]
 
         td_blstm = td_blstm.TimeDistributedBlstm(train_X, train_Y,
                                                     test_X, test_Y,

@@ -42,7 +42,7 @@ PHN_PATH = "phn/"
 CSV_PATH = "csv/"
 
 # List of vowels in english (TIMIT classification)
-VOWELS = "vowels.csv"
+VOWELS = "rawdata/timit/vowels"
 
 CONFIG_PATH = "configs/features.conf"
 OUTPUT = "datasets/"
@@ -55,6 +55,11 @@ SAMPLE_FREQUENCY = 0.0000625 # 16kHz
 PHONE_LABELS = ["start", "end", "type"]
 FRAME_TIME = "frameTime"
 
+
+def energy_contributions():
+
+
+    return
 
 
 def perform_frame_labeling(utterance_filenames,
@@ -87,6 +92,10 @@ def perform_frame_labeling(utterance_filenames,
             tot_frames = expr_features.shape[0]
             tot_phones = expr_phones.shape[0]
 
+            # Energy profile creation code, Tamburini Like
+            expr_features['energy_profile'] = expr_features.loc[:, expr_features.columns[0]] \
+                                            * expr_features.loc[:, expr_features.columns[1]]).values
+
             # Convert sample number to time (seconds)
             expr_phones.loc[:, "start":"end"] *= SAMPLE_FREQUENCY
 
@@ -108,8 +117,34 @@ def perform_frame_labeling(utterance_filenames,
                                 and frame_endings[i] <= expr_phones.loc[vowel_range[1], "end"]]
                 frame_labels[indexes] = VOWEL
 
+
+            # Complex labeling code, increases a lot computational time
+            frame_start_phone = []
+            frame_end_phone = []
+            for phone in range(tot_phones):
+                s = [(expr_phones.loc[phone, "type"] + str(int(expr_phones.loc[phone, "type"] in vowels))) for k in range(tot_frames) \
+                        if frame_starts[k] >= expr_phones.loc[phone, "start"] \
+                            and frame_starts[k] < expr_phones.loc[phone, "end"]]
+                frame_start_phone.extend(s)
+
+                e = [(expr_phones.loc[phone, "type"] + str(int(expr_phones.loc[phone, "type"] in vowels))) for k in range(tot_frames) \
+                        if frame_starts[k] >= expr_phones.loc[phone, "start"] \
+                            and frame_endings[k] <= expr_phones.loc[phone, "end"]]
+                frame_end_phone.extend(e)
+                e1 = [(expr_phones.loc[phone + 1, "type"] + str(int(expr_phones.loc[phone + 1, "type"] in vowels))) for k in range(tot_frames) \
+                        if frame_starts[k] >= expr_phones.loc[phone, "start"] \
+                            and frame_starts[k] < expr_phones.loc[phone, "end"] \
+                            and frame_endings[k] > expr_phones.loc[phone, "end"] \
+                            and phone + 1 < tot_phones]
+                frame_end_phone.extend(e1)
+            frame_start_phoned = pd.DataFrame(frame_start_phone, index = None, columns = ["start_phone"])
+            frame_end_phoned = pd.DataFrame(frame_end_phone, index = None, columns = ["end_phone"])
+
+
             expr_label_data = pd.DataFrame(frame_labels, index = None, columns = ["vowel"])
-            labeled_utterance = pd.concat([expr_features, expr_label_data], axis = 1)
+            labeled_utterance = pd.concat([expr_features, expr_label_data, \
+                                            frame_start_phoned, frame_end_phoned], axis = 1)
+            # labeled_utterance = pd.concat([expr_features, expr_label_data], axis = 1)
 
             # Throwing away frame start info which is no more relevant
             labeled_utterance.drop(labeled_utterance.columns[0], axis = 1, inplace = True)

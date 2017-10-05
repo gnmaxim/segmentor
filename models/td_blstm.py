@@ -153,7 +153,8 @@ class TimeDistributedBlstm:
                             (Dense(self.__output_shape[1],
                                    activation = "softmax")))
         self.__model.compile(optimizer = "adam",
-                               loss = "binary_crossentropy")
+                                   metrics = ["categorical_accuracy"],
+                                   loss = "binary_crossentropy")
 
         return
 
@@ -243,7 +244,7 @@ class TimeDistributedBlstm:
         return
 
 
-    __EPOCHS = 200
+    __EPOCHS = 50
     __BATCH_SIZE = 4
 
     __model = None
