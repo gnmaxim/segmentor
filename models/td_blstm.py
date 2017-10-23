@@ -134,20 +134,20 @@ class TimeDistributedBlstm:
     def __build(self):
         self.__model = Sequential()
 
-        # self.__model.add(Bidirectional( \
-        #                     LSTM(int(self.__max_sample_size / 2),
-        #                           return_sequences = True),
-        #                           input_shape = (self.__input_shape)))
-        # Stateful
-        self.__model.add(Masking( \
-                            mask_value = np.zeros(self.__train_X[0].shape[1]),
-                            batch_input_shape = (self.__BATCH_SIZE,
-                                                self.__input_shape[0],
-                                                self.__input_shape[1])))
         self.__model.add(Bidirectional( \
-                            LSTM(int(self.__max_sample_size / 2),
+                             LSTM(int(self.__max_sample_size / 2),
+                                   return_sequences = True),
+                                   input_shape = (self.__input_shape)))
+        # Stateful
+        #self.__model.add(Masking( \
+                            #mask_value = np.zeros(self.__train_X[0].shape[1]),
+                            #batch_input_shape = (self.__BATCH_SIZE,
+                                                #self.__input_shape[0],
+                                                #self.__input_shape[1])))
+        #self.__model.add(Bidirectional( \
+                            #LSTM(int(self.__max_sample_size / 2),
                                   #stateful = True,
-                                  return_sequences = True)))
+                                  #return_sequences = True)))
         self.__model.add(Dropout(0.5))
         self.__model.add(TimeDistributed \
                             (Dense(self.__output_shape[1],
