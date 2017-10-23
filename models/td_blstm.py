@@ -146,7 +146,7 @@ class TimeDistributedBlstm:
                                                 self.__input_shape[1])))
         self.__model.add(Bidirectional( \
                             LSTM(int(self.__max_sample_size / 2),
-                                  stateful = True,
+                                  #stateful = True,
                                   return_sequences = True)))
         self.__model.add(Dropout(0.5))
         self.__model.add(TimeDistributed \

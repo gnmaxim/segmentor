@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Author: Maxim Gaina
+
 
 TOPDIR=$PWD
 FOLDER=0
